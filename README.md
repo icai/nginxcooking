@@ -157,7 +157,81 @@ curl 'http://localhost/upstream_conf?upstream=backend&id=1&drain=1'
 
 
 
+## 第五章 Massively Scalable Content Caching （大规模可扩展的内容缓存）
 
+
+5.1 Caching Zones （缓存区）
+
+You need to cache content and need to define where the cache is stored.
+
+
+
+Use the proxy_cache_path directive to define shared memory cache
+zones and a location for the content:
+
+```
+proxy_cache_path /var/nginx/cache
+                keys_zone=CACHE:60m
+                levels=1:2
+                inactive=3h
+                max_size=20g;
+proxy_cache CACHE;
+```
+
+
+5.2 Caching Hash Keys
+
+You need to control how your content is cached and looked up.
+
+Use the proxy_cache_key directive, along with variables to define
+what constitutes a cache hit or miss:
+
+```
+proxy_cache_key "$host$request_uri $cookie_user";
+```
+
+5.3 Cache Bypass
+
+
+Use the proxy_cache_bypass directive with a nonempty or nonzero
+value. One way to do this is by setting a variable within location
+blocks that you do not want cached to equal 1:
+
+```
+proxy_cache_bypass $http_cache_bypass;
+
+```
+
+The configuration tells NGINX to bypass the cache if the HTTP
+request header named cache_bypass is set to any value that is not 0.
+
+
+5.4 Cache Performance (性能)
+
+
+```
+location ~* \.(css|js)$ {
+  expires 1y;
+  add_header Cache-Control "public";
+}
+```
+
+5.5 Purging （）
+
+```
+map $request_method $purge_method {
+    PURGE 1;
+    default 0;
+}
+server {
+    ...
+    location / {
+        ...
+        proxy_cache_purge $purge_method;
+    }
+}
+
+```
 
 
 
