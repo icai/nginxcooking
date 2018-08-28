@@ -13,7 +13,7 @@ https://www.nginx.com/resources/library/complete-nginx-cookbook/
 
 Part I: Load Balancing and HTTP Caching（负载平衡和HTTP缓存）   
 Part II: Security and Access （安全和访问）   
-Part III: Deployment and Operations （部署和运营）  
+Part III: Deployment and Operations （devops）  
 
 
 相对于开发者而言，我们更多的只需要了解第一部分。
