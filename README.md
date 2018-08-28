@@ -11,9 +11,10 @@ https://www.nginx.com/resources/library/complete-nginx-cookbook/
 
 这本说主要分为三部分讲解：
 
-Part I: Load Balancing and HTTP Caching（负载平衡和HTTP缓存）
-Part II: Security and Access （安全和访问）
-Part III: Deployment and Operations （部署和运营）
+Part I: Load Balancing and HTTP Caching（负载平衡和HTTP缓存）   
+Part II: Security and Access （安全和访问）   
+Part III: Deployment and Operations （部署和运营）  
+
 
 相对于开发者而言，我们更多的只需要了解第一部分。
 
