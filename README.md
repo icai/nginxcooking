@@ -233,5 +233,475 @@ server {
 
 ```
 
+Part II: Security and Access（安全和访问）
+
+## 第十一章 Controlling Access
+
+11.1 Access Based on IP Address
+
+根据客户端IP设定访问权限
+
+```
+location /admin/ {
+    deny 10.0.0.1;
+    allow 10.0.0.0/20;
+    allow 2001:0db8::/32;
+    deny all;
+}
+
+```
+
+11.2 Allowing Cross-Origin Resource Sharing
+
+跨域资源共享, 这里的OPTIONS 处理可以参考
+
+```
+map $request_method $cors_method {
+    OPTIONS 11;
+    GET 1;
+    POST 1;
+    default 0;
+}
+server {
+    ...
+    location / {
+        if ($cors_method ~ '1') {
+            add_header 'Access-Control-Allow-Methods' 
+            'GET,POST,OPTIONS';
+            add_header 'Access-Control-Allow-Origin'
+            '*.example.com';
+            add_header 'Access-Control-Allow-Headers'
+            'DNT,
+            Keep-Alive,
+            User-Agent,
+            If-Modified-Since,
+            Cache-Control,
+            Content-Type';
+        }
+        if ($cors_method = '11') {
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=UTF-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+    }
+}
+
+```
+
+
+## 第十二章 Limiting Use （限制使用）
+
+
+12.1 Limiting Connections 
+限制连接数
+
+You need to limit the number of connections based on a `predefined key`, such as the client’s IP address.
+
+limit_conn 指令
+
+
+```
+http {
+    limit_conn_zone $binary_remote_addr zone=limitbyaddr:10m;
+    limit_conn_status 429;
+    ...
+    server {
+        ...
+        limit_conn limitbyaddr 40;
+        ...
+    }
+}
+```
+
+This configuration creates a shared memory zone named limit 
+byaddr. The predefined key used is the client’s IP address in binary
+form. The size of the shared memory zone is set to 10 mega‐
+bytes. The limit_conn directive takes two parameters: a
+limit_conn_zone name, and the number of connections allowed.
+The limit_conn_status sets the response when the connections are
+limited to a status of 429, indicating too many
+requests. The limit_conn and limit_conn_status directives are
+valid in the HTTP, server, and location context.
+
+
+12.2 Limiting Rate
+
+频率
+
+```
+http {
+    limit_req_zone $binary_remote_addr
+        zone=limitbyaddr:10m rate=1r/s;
+    limit_req_status 429;
+    ...
+    server {
+        ...
+        limit_req zone=limitbyaddr burst=10 nodelay;
+        ...
+    }
+}
+
+```
+
+
+12.3 Limiting Bandwidth
+
+带宽限制， 自动降速
+
+```
+location /download/ {
+    limit_rate_after 10m;
+    limit_rate 1m;
+}
+```
+
+
+## 第十三章 Encrypting
+
+
+13.1 Client-Side Encryption
+
+
+You need to encrypt traffic between your NGINX server and the client.
+
+加密传输，SSL modules such as  the `ngx_http_ssl_module` or `ngx_stream_ssl_module`
+
+
+```
+http { # All directives used below are also valid in stream
+    server {
+        listen 8433 ssl;
+        ssl_protocols TLSv1.2;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_certificate /usr/local/nginx/conf/cert.pem;
+        ssl_certificate_key /usr/local/nginx/conf/cert.key;
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 10m;
+    }
+}
+
+```
+
+更新阅读  
+https://docs.w3cub.com/nginx/http/ngx_http_ssl_module/#example   
+https://docs.w3cub.com/nginx/stream/ngx_stream_ssl_module/#example
+
+
+13.2 Upstream Encryption
+
+You need to encrypt traffic between NGINX and the upstream service 
+and set specific negotiation rules for compliance regulations 
+or if the upstream is outside of your secured network.
+
+
+```
+location / {
+    proxy_pass https://upstream.example.com;
+    proxy_ssl_verify on;
+    proxy_ssl_verify_depth 2;
+    proxy_ssl_protocols TLSv1.2;
+}
+```
+
+
+
+## 第十四章 HTTP Basic Authentication
+
+分为两个步骤，创建密码文件， 设定nginx 配置
+
+14.1 Creating a User File
+
+文件格式
+
+```
+# comment
+name1:password1
+name2:password2:comment
+name3:password3
+
+```
+
+或者通过以下命令（先安装openssl）
+
+```
+openssl passwd MyPassword1234
+```
+
+14.2 Using Basic Authentication
+
+
+
+```
+location / {
+    auth_basic "Private site";
+    auth_basic_user_file conf.d/passwd;
+}
+
+```
+
+
+## 第十五章 HTTP Authentication Subrequests
+
+
+15.1 Authentication Subrequests
+
+Use the http_auth_request_module to make a request to the
+authentication service to verify identity before serving the request:
+
+```
+location /private/ {
+    auth_request /auth;
+    auth_request_set $auth_status $upstream_status;
+}
+location = /auth {
+    internal;
+    proxy_pass http://auth-server;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Original-URI $request_uri;
+}
+```
+
+
+## 第十六章  Secure Links
+
+
+16.1 Securing a Location
+
+Use the secure link module and the secure_link_secret directive
+to restrict access to resources to users who have a secure link:
+
+```
+location /resources {
+    secure_link_secret mySecret;
+    if ($secure_link = "") { return 403; }
+    rewrite ^ /secured/$secure_link;
+}
+location /secured/ {
+    internal;
+    root /var/www;
+}
+```
+
+16.2 Generating a Secure Link with a Secret (生成一个安全链接)
+
+You need to generate a secure link from `your application` using a
+secret.
+
+
+The `secure link module` in NGINX accepts the hex digest of an `md5`
+hashed string, where the string is a concatenation of the URI path
+and the secret. 
+
+```
+echo -n 'index.htmlmySecret' | openssl md5 -hex
+
+(stdin)= a53bee08a4bf0bbea978ddf736363a12
+```
+Python示例
+
+```py
+import hashlib
+hashlib.md5.(b'index.htmlmySecret').hexdigest()
+
+'a53bee08a4bf0bbea978ddf736363a12
+```
+
+
+Now that we have this hash digest, we can use it in a URL. Our
+example will be for www.example.com making a request for the
+file `/var/www/secured/index.html` through our /resources location.
+Our full URL will be the following:
+```
+www.example.com/resources/a53bee08a4bf0bbea978ddf736363a12/\
+index.html
+```
+
+
+16.3 Securing a Location with an `Expire Date`
+
+
+```
+location /resources {
+    root /var/www;
+    secure_link $arg_md5,$arg_expires;
+    secure_link_md5 "$secure_link_expires$uri$remote_addr
+    mySecret";
+    if ($secure_link = "") { return 403; }
+    if ($secure_link = "0") { return 410; }
+}
+```
+
+secure_link directive 有两个参数，第一个参数是保存md5哈希的变量；第二个参数是保存链接的到期时间（Unix epoch time format）
+
+
+16.4 Generating an Expiring Link
+
+创建一个时间戳（Unix epoch time format）
+
+```bash
+date -d "2020-12-31 00:00" +%s --utc
+# 1609372800
+```
+
+
+Next you’ll need to concatenate your hash string to match the string
+configured with the secure_link_md5 directive. In this case, our
+string to be used will be 1293771600/resources/
+index.html127.0.0.1 mySecret. The md5 hash is a bit different
+than just a hex digest. It’s an md5 hash in binary format, base64 enco‐
+ded, with plus signs (+) translated to hyphens (-), slashes (/) trans‐
+lated to underscores (_), and equal (=) signs removed. The following
+is an example on a Unix system:
+
+```bash
+ echo -n '1609372800/resources/index.html127.0.0.1 mySecret' \
+| openssl md5 -binary \
+| openssl base64 \
+| tr +/ -_ \
+| tr -d =
+# TG6ck3OpAttQ1d7jW3JOcw
+```
+
+Now that we have our hash, we can use it as an argument along with
+the expire date:
+
+/resources/index.html?md5=TG6ck3OpAttQ1d7jW3JOcw&expires=1609372800'
+
+
+```py
+
+from datetime import datetime, timedelta
+from base64 import b64encode
+import hashlib
+# Set environment vars
+resource = b'/resources/index.html'
+remote_addr = b'127.0.0.1'
+host = b'www.example.com'
+mysecret = b'mySecret'
+# Generate expire timestamp
+now = datetime.utcnow()
+expire_dt = now + timedelta(hours=1)
+expire_epoch = str.encode(expire_dt.strftime('%s'))
+# md5 hash the string
+uncoded = expire_epoch + resource + remote_addr + mysecret
+md5hashed = hashlib.md5(uncoded).digest()
+# Base64 encode and transform the string
+b64 = b64encode(md5hashed)
+unpadded_b64url = b64.replace(b'+', b'-')\
+    .replace(b'/', b'_')\
+    .replace(b'=', b'')
+# Format and generate the link
+linkformat = "{}{}?md5={}?expires={}"
+securelink = linkformat.format(
+    host.decode(),
+    resource.decode(),
+    unpadded_b64url.decode(),
+    expire_epoch.decode()
+)
+print(securelink)
+
+```
+
+
+
+## 第十七章 API Authentication Using JWT
+
+
+
+## 第十八章 OpenId Connect Single Sign-On
+
+
+
+
+
+
+## 第二十章 Practical Security Tips
+
+20.1 HTTPS Redirects
+
+`Use a rewrite to send all HTTP traffic to HTTPS:`
+
+
+```
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+```
+
+
+20.2 Redirecting to HTTPS Where SSL/TLS Is Terminated Before NGINX
+
+```
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    if ($http_x_forwarded_proto = 'http') {
+        return 301 https://$host$request_uri;
+    }
+}
+```
+
+This configuration is very much like HTTPS redirects. However, in
+this configuration we’re only redirecting `if the header X-Forwarded-Proto` is equal to HTTP.
+
+
+
+20.3 HTTP Strict Transport Security
+
+You need to instruct browsers to `never` send requests over HTTP
+
+
+Use the HTTP Strict Transport Security (HSTS) enhancement by
+setting the Strict-Transport-Security header:
+
+```
+add_header Strict-Transport-Security max-age=31536000;
+
+```
+
+This configuration sets the Strict-Transport-Security header to a
+max age of a year. This will instruct the browser to always do an
+internal redirect when HTTP requests are attempted to this domain,
+so that `all requests will be made over HTTPS`.
+
+
+20.4 Satisfying Any Number of Security Methods
+
+Use the satisfy directive
+
+```
+location / {
+    satisfy any;
+    allow 192.168.1.0/24;
+    deny all;
+    auth_basic "closed site";
+    auth_basic_user_file conf/htpasswd;
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
