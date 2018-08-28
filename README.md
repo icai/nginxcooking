@@ -1,5 +1,4 @@
 # Complete NGINX Cookbook notes
-Complete NGINX Cookbook notes（ZH-CN）
 
 Complete NGINX Cookbook 首先这本说是可以免费下载的。   
 
