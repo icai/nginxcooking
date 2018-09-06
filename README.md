@@ -21,7 +21,7 @@ Part III: Deployment and Operations （部署和运营）
 
 
 
-## 第一章 High-Performance Load Balancing （高性能负载平衡）
+## 第一章 High-Performance Load Balancing （高性能负载均衡）
 
 1.1 HTTP Load Balancing（http负载均衡）
 
@@ -605,13 +605,6 @@ print(securelink)
 
 ```
 
-
-
-## 第十七章 API Authentication Using JWT
-
-
-
-## 第十八章 OpenId Connect Single Sign-On
 
 
 
